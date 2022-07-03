@@ -1,0 +1,49 @@
+version: 0.2
+phases:
+  pre_build:
+    commands:
+      - echo prebuild
+      - echo Logging in to Amazon ECR...
+      - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com
+  build:
+    commands:
+      - echo java version
+      - java --version
+      - echo maven version
+      - mvn --version
+      - echo docker version
+      - docker --version
+      - chmod +x mvnw
+      - echo build jar file
+      - ./mvnw clean package -Dmaven.test.skip
+      - ls ./target
+      - echo Build started on `date`
+      - echo load open jdk images from cache
+      - if [ -f /home/caches/openjdk11.tar ]; then docker load -i /home/caches/openjdk11.tar; else echo no cache found for openjdk image; fi
+      - docker images
+      - echo Building the Docker image...
+      - docker build -t $IMAGE_REPO_NAME:$IMAGE_TAG .
+      - docker tag $IMAGE_REPO_NAME:$IMAGE_TAG $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME:$IMAGE_TAG
+      - if [ -d /home/caches ]; then echo /home/caches exists; else mkdir -p /home/caches; fi
+      - docker save -o /home/caches/openjdk11.tar adoptopenjdk/openjdk11
+  post_build:
+    commands:
+      - echo post build
+      - echo Build completed on `date`
+      - echo Pushing the Docker image...
+      - docker push $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME:$IMAGE_TAG
+      - echo remote untagged image
+      - UNTAGGED_IMAGESE=$(aws ecr list-images --repository-name $IMAGE_REPO_NAME --region $AWS_DEFAULT_REGION --filter "tagStatus=UNTAGGED" --query 'imageIds[0:100]' --output json)
+      - aws ecr batch-delete-image --repository-name $IMAGE_REPO_NAME --region $AWS_DEFAULT_REGION --image-ids "$UNTAGGED_IMAGESE" || true
+      - printf '[{"name":"%s","imageUri":"%s"}]' $IMAGE_REPO_NAME $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME:$IMAGE_TAG > imagedefinitions.json
+      - echo imagedefinition.json content
+      - cat imagedefinitions.json
+
+artifacts:
+  files:
+    - imagedefinitions.json
+
+cache:
+  paths:
+    - '/root/.m2/**/*'
+    - '/home/caches/*'
