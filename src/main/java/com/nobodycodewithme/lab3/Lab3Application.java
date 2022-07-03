@@ -1,4 +1,4 @@
-package iuh.fit.maikiencuong;
+package com.nobodycodewithme.lab3;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -21,6 +21,8 @@ public class Lab3Application {
     @GetMapping
     public String test() throws UnknownHostException {
         return String.format("<h4>NoBodyCodeWithMe aws code commit, codebuild, codepipeline, ecr, ecs fargate, route 53, autoscaling</h4> " +
+                "<br> " +
+                "<h4>Trigger CI/CD pipeline by commit and push</h4>" +
                 "<br> " +
                 "<h4>Host name: %s</>", InetAddress.getLocalHost().getHostName());
     }
